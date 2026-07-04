@@ -218,6 +218,25 @@
   }
   .model-note b{color:var(--rust-bright);font-weight:600;}
 
+  .model-toggle{display:flex;gap:0;margin-bottom:18px;border:1px solid var(--border);}
+  .model-toggle button{
+    flex:1;background:transparent;border:none;color:var(--ink-dim);
+    font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.04em;text-transform:uppercase;
+    padding:9px 4px;cursor:pointer;
+  }
+  .model-toggle button.active{background:var(--rust);color:var(--ink);}
+  .model-toggle button:not(.active):hover{background:rgba(255,255,255,0.05);}
+  .model-toggle button:disabled{opacity:0.4;cursor:not-allowed;}
+
+  .compare-row{
+    display:flex;justify-content:space-between;font-family:'IBM Plex Mono',monospace;font-size:12px;
+    color:var(--ink-dim);border-top:1px solid var(--border);padding-top:12px;margin-top:14px;
+  }
+  .compare-row .compare-item b{display:block;color:var(--ink);font-size:15px;margin-top:2px;}
+  .compare-row .compare-item{text-align:left;}
+  .compare-row .compare-item.rf b{color:var(--rust-bright);}
+  #rf-status{font-size:11px;color:var(--ink-faint);text-align:left;margin-top:8px;}
+
   /* ---------- BAR CHARTS ---------- */
   .chart-block{margin-bottom:6px;}
   .bar-row{display:grid;grid-template-columns:150px 1fr 64px;align-items:center;gap:14px;padding:9px 0;}
@@ -301,6 +320,10 @@
       <div class="spec-sheet" id="spec-sheet"></div>
 
       <div class="gauge-panel">
+        <div class="model-toggle">
+          <button id="btn-rf" class="active">Random Forest</button>
+          <button id="btn-lr">Linear Regression</button>
+        </div>
         <div class="gauge-caption">Predicted Compressive Strength</div>
         <div class="gauge-wrap">
           <svg id="gauge" viewBox="0 0 260 160" width="100%">
@@ -323,15 +346,22 @@
         <div class="readout">
           <div class="num" id="readout">--<span>MPa</span></div>
         </div>
+        <div class="compare-row">
+          <div class="compare-item rf">Random Forest<b id="val-rf">--</b></div>
+          <div class="compare-item lr">Linear Regression<b id="val-lr">--</b></div>
+        </div>
+        <div id="rf-status">Loading Random Forest model...</div>
         <button class="reset-btn" id="reset-btn">Reset to average mix</button>
         <div class="bench">
           <div>&#8226; <b>~17 MPa</b> — typical residential-grade concrete</div>
           <div>&#8226; <b>~70 MPa</b> — high-performance / commercial grade</div>
         </div>
-        <div class="model-note">
-          Powered by <b>Linear Regression</b> (this project's baseline model, R&sup2; 0.628).
-          The more accurate <b>Random Forest</b> (R&sup2; 0.881) uses 300 decision trees and
-          isn't practical to run live in a browser — see its results below instead.
+        <div class="model-note" id="model-note">
+          Powered by <b>Random Forest</b> (R&sup2; 0.881) — this project's more accurate model,
+          running its actual 150 exported decision trees directly in your browser (trimmed down
+          from 300 to keep the file under 1&nbsp;MB; predictions differ from the full model by
+          well under 1 MPa). Switch to <b>Linear Regression</b> (R&sup2; 0.628) to compare
+          against this project's simpler baseline.
         </div>
       </div>
     </div>
@@ -436,7 +466,7 @@ FIELDS.forEach(([key, label, unit, min, max, def]) => {
   sheet.appendChild(row);
 });
 
-function predict(){
+function predictLinear(){
   let total = MODEL.intercept;
   FIELDS.forEach(([key]) => {
     const v = parseFloat(document.getElementById("in-"+key).value);
@@ -445,12 +475,77 @@ function predict(){
   return total;
 }
 
+// ---------- Random Forest: real exported trees, traversed in-browser ----------
+let RF = null;         // { feature_names, trees } once loaded
+let RF_ORDER = null;   // maps FIELDS order -> RF's own feature_names order
+let activeModel = "rf";
+
+fetch("rf_model.json")
+  .then(r => { if (!r.ok) throw new Error("fetch failed"); return r.json(); })
+  .then(data => {
+    RF = data;
+    RF_ORDER = RF.feature_names.map(name => FIELDS.findIndex(([key]) => key === name));
+    document.getElementById("rf-status").textContent =
+      `Random Forest ready — ${RF.trees.length} trees loaded (${(JSON.stringify(data).length/1024/1024).toFixed(1)} MB)`;
+    document.getElementById("btn-rf").disabled = false;
+    update();
+  })
+  .catch(() => {
+    document.getElementById("rf-status").textContent =
+      "Random Forest unavailable in this preview — works on the hosted site (needs a server to fetch the model file). Showing Linear Regression instead.";
+    document.getElementById("btn-rf").disabled = true;
+    setActiveModel("lr");
+  });
+
+function predictTree(tree, x){
+  let node = 0;
+  while (tree.feature[node] !== -2){
+    const f = tree.feature[node];
+    if (x[f] <= tree.threshold[node]) node = tree.children_left[node];
+    else node = tree.children_right[node];
+  }
+  return tree.value[node];
+}
+
+function predictRF(){
+  if (!RF) return null;
+  const x = FIELDS.map(([key]) => parseFloat(document.getElementById("in-"+key).value));
+  const xOrdered = RF_ORDER.map(i => x[i]);
+  let sum = 0;
+  for (const tree of RF.trees) sum += predictTree(tree, xOrdered);
+  return sum / RF.trees.length;
+}
+
+function setActiveModel(model){
+  activeModel = model;
+  document.getElementById("btn-rf").classList.toggle("active", model === "rf");
+  document.getElementById("btn-lr").classList.toggle("active", model === "lr");
+  update();
+}
+
+document.getElementById("btn-rf").addEventListener("click", () => { if (RF) setActiveModel("rf"); });
+document.getElementById("btn-lr").addEventListener("click", () => setActiveModel("lr"));
+
 function update(){
   FIELDS.forEach(([key]) => {
     document.getElementById("val-"+key).textContent = document.getElementById("in-"+key).value;
   });
-  const strength = Math.max(0, predict());
+
+  const lrVal = Math.max(0, predictLinear());
+  const rfVal = RF ? Math.max(0, predictRF()) : null;
+
+  document.getElementById("val-lr").textContent = lrVal.toFixed(1) + " MPa";
+  document.getElementById("val-rf").textContent = rfVal !== null ? rfVal.toFixed(1) + " MPa" : "loading...";
+
+  const strength = activeModel === "rf" && rfVal !== null ? rfVal : lrVal;
   document.getElementById("readout").innerHTML = strength.toFixed(1) + "<span>MPa</span>";
+
+  const note = document.getElementById("model-note");
+  if (activeModel === "rf" && rfVal !== null){
+    note.innerHTML = `Powered by <b>Random Forest</b> (R&sup2; 0.881) — this project's more accurate model, running its actual 150 exported decision trees directly in your browser (trimmed down from 300 to keep the file under 1&nbsp;MB; predictions differ from the full model by well under 1 MPa). Switch to <b>Linear Regression</b> (R&sup2; 0.628) to compare against this project's simpler baseline.`;
+  } else {
+    note.innerHTML = `Powered by <b>Linear Regression</b> (R&sup2; 0.628) — this project's simpler baseline model, just multiply-and-add on 8 coefficients. Switch to <b>Random Forest</b> (R&sup2; 0.881) to see this project's more accurate model instead.`;
+  }
 
   const clamped = Math.min(80, Math.max(0, strength));
   const frac = clamped / 80;
@@ -471,6 +566,7 @@ document.getElementById("reset-btn").addEventListener("click", () => {
   update();
 });
 
+document.getElementById("btn-rf").disabled = true;
 update();
 
 // ---------- feature importance chart (real Random Forest output) ----------
@@ -529,4 +625,3 @@ CORR.forEach(([label, val]) => {
 
 </body>
 </html>
-
