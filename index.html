@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Concrete Compressive Strength Predictor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;900&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy:#101d33;
+    --navy-deep:#0a1524;
+    --navy-panel:#16273f;
+    --grid-line:rgba(210,225,245,0.055);
+    --grid-line-strong:rgba(210,225,245,0.11);
+    --paper:#ece3d0;
+    --paper-dim:#cfc4ab;
+    --ink:#e9eef6;
+    --ink-dim:#8fa0ba;
+    --ink-faint:#5b6c85;
+    --rust:#c1652f;
+    --rust-bright:#e0803f;
+    --border:rgba(210,225,245,0.14);
+  }
+
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+
+  body{
+    margin:0;
+    background:var(--navy);
+    background-image:
+      linear-gradient(var(--grid-line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid-line) 1px, transparent 1px),
+      linear-gradient(var(--grid-line-strong) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid-line-strong) 1px, transparent 1px);
+    background-size:20px 20px, 20px 20px, 100px 100px, 100px 100px;
+    color:var(--ink);
+    font-family:'Inter',sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+
+  .wrap{max-width:1080px;margin:0 auto;padding:0 28px;}
+
+  .mono{font-family:'IBM Plex Mono',monospace;}
+
+  .eyebrow{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:12px;
+    letter-spacing:0.18em;
+    text-transform:uppercase;
+    color:var(--rust-bright);
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  .eyebrow::before{
+    content:"";
+    width:22px;height:1px;background:var(--rust-bright);display:inline-block;
+  }
+
+  /* ---------- HERO ---------- */
+  header.hero{
+    padding:64px 0 56px;
+    border-bottom:1px solid var(--border);
+  }
+  .hero-grid{
+    display:grid;
+    grid-template-columns:1fr 260px;
+    gap:40px;
+    align-items:end;
+  }
+  h1.stencil{
+    font-family:'Big Shoulders Display',sans-serif;
+    font-weight:900;
+    font-size:clamp(44px,7vw,84px);
+    line-height:0.92;
+    letter-spacing:0.01em;
+    margin:14px 0 18px;
+    text-transform:uppercase;
+    color:var(--ink);
+  }
+  h1.stencil span{color:var(--rust-bright);}
+  .thesis{
+    font-size:16px;
+    line-height:1.6;
+    color:var(--ink-dim);
+    max-width:520px;
+  }
+  .thesis b{color:var(--ink);font-weight:600;}
+
+  .titleblock{
+    background:var(--paper);
+    color:var(--navy-deep);
+    font-family:'IBM Plex Mono',monospace;
+    font-size:11px;
+    border:1px solid #00000022;
+    box-shadow:0 12px 30px -14px rgba(0,0,0,0.6);
+  }
+  .titleblock .row{
+    display:flex;justify-content:space-between;gap:10px;
+    padding:8px 12px;border-bottom:1px solid rgba(0,0,0,0.18);
+  }
+  .titleblock .row:last-child{border-bottom:none;}
+  .titleblock .row span:first-child{color:#6b5f45;text-transform:uppercase;letter-spacing:0.04em;}
+  .titleblock .row span:last-child{font-weight:600;text-align:right;}
+  .titleblock .title{
+    padding:12px;
+    background:var(--navy-deep);
+    color:var(--paper);
+    font-weight:600;
+    letter-spacing:0.03em;
+    text-transform:uppercase;
+    font-size:12px;
+  }
+
+  /* ---------- SECTION SHELL ---------- */
+  section{padding:64px 0;border-bottom:1px solid var(--border);}
+  section:last-of-type{border-bottom:none;}
+  h2.section-title{
+    font-family:'Big Shoulders Display',sans-serif;
+    font-weight:700;
+    font-size:clamp(26px,3.4vw,36px);
+    text-transform:uppercase;
+    letter-spacing:0.01em;
+    margin:10px 0 8px;
+  }
+  .section-sub{color:var(--ink-dim);font-size:15px;max-width:640px;margin-bottom:36px;line-height:1.6;}
+
+  /* ---------- CALCULATOR ---------- */
+  .calc-grid{
+    display:grid;
+    grid-template-columns:1.15fr 0.85fr;
+    gap:32px;
+    align-items:start;
+  }
+  .spec-sheet{
+    background:var(--navy-panel);
+    border:1px solid var(--border);
+    padding:8px 24px 24px;
+  }
+  .spec-row{
+    padding:16px 0;
+    border-bottom:1px solid var(--border);
+  }
+  .spec-row:last-child{border-bottom:none;}
+  .spec-label-row{
+    display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;
+  }
+  .spec-label{font-size:13px;color:var(--ink-dim);letter-spacing:0.03em;text-transform:uppercase;}
+  .spec-value{font-family:'IBM Plex Mono',monospace;font-size:15px;color:var(--rust-bright);font-weight:600;}
+  input[type=range]{
+    width:100%;
+    -webkit-appearance:none;
+    height:3px;
+    background:var(--border);
+    outline:none;
+    margin:4px 0;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;
+    width:15px;height:15px;
+    background:var(--rust-bright);
+    border:2px solid var(--navy);
+    border-radius:2px;
+    cursor:pointer;
+    margin-top:-6px;
+  }
+  input[type=range]::-moz-range-thumb{
+    width:13px;height:13px;
+    background:var(--rust-bright);
+    border:2px solid var(--navy);
+    border-radius:2px;
+    cursor:pointer;
+  }
+  input[type=range]::-webkit-slider-runnable-track{height:3px;background:var(--border);}
+
+  .reset-btn{
+    font-family:'IBM Plex Mono',monospace;
+    background:transparent;
+    border:1px solid var(--border);
+    color:var(--ink-dim);
+    font-size:12px;
+    letter-spacing:0.05em;
+    text-transform:uppercase;
+    padding:10px 16px;
+    cursor:pointer;
+    margin-top:20px;
+  }
+  .reset-btn:hover{border-color:var(--rust-bright);color:var(--rust-bright);}
+  .reset-btn:focus-visible, input:focus-visible, a:focus-visible{outline:2px solid var(--rust-bright);outline-offset:2px;}
+
+  /* gauge panel */
+  .gauge-panel{
+    background:var(--navy-panel);
+    border:1px solid var(--border);
+    padding:28px 24px 24px;
+    text-align:center;
+    position:sticky;
+    top:24px;
+  }
+  .gauge-caption{font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:14px;}
+  .gauge-wrap{position:relative;width:100%;max-width:260px;margin:0 auto;}
+  .readout{margin-top:6px;}
+  .readout .num{
+    font-family:'Big Shoulders Display',sans-serif;
+    font-weight:900;
+    font-size:52px;
+    color:var(--ink);
+    line-height:1;
+  }
+  .readout .num span{font-size:22px;color:var(--ink-dim);font-family:'IBM Plex Mono',monospace;font-weight:400;margin-left:4px;}
+  .bench{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ink-faint);margin-top:14px;line-height:1.7;text-align:left;border-top:1px solid var(--border);padding-top:14px;}
+  .bench b{color:var(--ink-dim);}
+  .model-note{
+    font-size:12px;color:var(--ink-faint);line-height:1.6;margin-top:16px;text-align:left;
+    border-top:1px solid var(--border);padding-top:14px;
+  }
+  .model-note b{color:var(--rust-bright);font-weight:600;}
+
+  /* ---------- BAR CHARTS ---------- */
+  .chart-block{margin-bottom:6px;}
+  .bar-row{display:grid;grid-template-columns:150px 1fr 64px;align-items:center;gap:14px;padding:9px 0;}
+  .bar-row .lbl{font-size:13px;color:var(--ink-dim);}
+  .bar-track{height:20px;background:rgba(255,255,255,0.04);position:relative;}
+  .bar-fill{height:100%;background:linear-gradient(90deg,var(--rust),var(--rust-bright));}
+  .bar-fill.dim{background:linear-gradient(90deg,#3a4a63,#4d5f7c);}
+  .bar-row .val{font-family:'IBM Plex Mono',monospace;font-size:13px;color:var(--ink);text-align:right;}
+
+  .compare-wrap{display:grid;grid-template-columns:1fr 1fr;gap:48px;}
+  .compare-col h3{
+    font-family:'IBM Plex Mono',monospace;font-size:12px;text-transform:uppercase;letter-spacing:0.08em;
+    color:var(--ink-faint);margin-bottom:18px;padding-bottom:10px;border-bottom:1px solid var(--border);
+  }
+  .compare-col.rf h3{color:var(--rust-bright);}
+
+  /* diverging correlation chart */
+  .div-row{display:grid;grid-template-columns:120px 1fr 60px;align-items:center;gap:12px;padding:8px 0;}
+  .div-row .lbl{font-size:13px;color:var(--ink-dim);}
+  .div-track{position:relative;height:16px;background:rgba(255,255,255,0.03);}
+  .div-center{position:absolute;left:50%;top:-4px;bottom:-4px;width:1px;background:var(--border);}
+  .div-fill{position:absolute;top:0;height:100%;}
+  .div-fill.pos{background:linear-gradient(90deg,var(--rust),var(--rust-bright));left:50%;}
+  .div-fill.neg{background:linear-gradient(90deg,#4d5f7c,#3a4a63);right:50%;}
+  .div-row .val{font-family:'IBM Plex Mono',monospace;font-size:13px;text-align:right;}
+
+  /* footer */
+  footer{padding:40px 0 60px;}
+  .foot-grid{display:flex;justify-content:space-between;flex-wrap:wrap;gap:24px;font-size:13px;color:var(--ink-faint);}
+  footer a{color:var(--ink-dim);text-decoration:none;border-bottom:1px solid var(--border);}
+  footer a:hover{color:var(--rust-bright);border-color:var(--rust-bright);}
+  .foot-links{display:flex;gap:24px;flex-wrap:wrap;}
+
+  @media (max-width:820px){
+    .hero-grid{grid-template-columns:1fr;}
+    .titleblock{max-width:320px;}
+    .calc-grid{grid-template-columns:1fr;}
+    .gauge-panel{position:static;}
+    .compare-wrap{grid-template-columns:1fr;gap:28px;}
+    .bar-row{grid-template-columns:110px 1fr 54px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="hero">
+    <div class="hero-grid">
+      <div>
+        <div class="eyebrow">Civil Engineering &times; Machine Learning</div>
+        <h1 class="stencil">Concrete<br>Strength<span>.</span>Predictor</h1>
+        <p class="thesis">
+          Concrete's compressive strength doesn't come from a formula you can do in your head —
+          <b>cement, water, and curing age interact</b> rather than simply adding up. This project
+          trains two models on 1,030 real lab-tested mixes to predict strength (MPa) from mix design,
+          then compares a simple baseline against one that can actually capture that interaction.
+        </p>
+      </div>
+      <div class="titleblock">
+        <div class="title">Project Record</div>
+        <div class="row"><span>Subject</span><span>Concrete, compressive strength</span></div>
+        <div class="row"><span>Method</span><span>Linear Reg. / Random Forest</span></div>
+        <div class="row"><span>Samples</span><span>1,030</span></div>
+        <div class="row"><span>Source</span><span>UCI ML Repository, 1998</span></div>
+        <div class="row"><span>Author</span><span>Mohammad Jamal</span></div>
+        <div class="row"><span>Rev.</span><span>01</span></div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ================= CALCULATOR ================= -->
+  <section id="calculator">
+    <div class="eyebrow">01 — Try it</div>
+    <h2 class="section-title">Mix Design Calculator</h2>
+    <p class="section-sub">
+      Adjust the mix. The gauge updates live, powered by the actual coefficients this project's
+      Linear Regression model learned from the real dataset — not placeholder numbers.
+    </p>
+
+    <div class="calc-grid">
+      <div class="spec-sheet" id="spec-sheet"></div>
+
+      <div class="gauge-panel">
+        <div class="gauge-caption">Predicted Compressive Strength</div>
+        <div class="gauge-wrap">
+          <svg id="gauge" viewBox="0 0 260 160" width="100%">
+            <path d="M 20 140 A 110 110 0 0 1 240 140" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="14" stroke-linecap="round"/>
+            <path id="gauge-arc" d="M 20 140 A 110 110 0 0 1 240 140" fill="none" stroke="url(#gaugeGrad)" stroke-width="14" stroke-linecap="round" stroke-dasharray="345.6" stroke-dashoffset="345.6"/>
+            <defs>
+              <linearGradient id="gaugeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stop-color="#3a4a63"/>
+                <stop offset="100%" stop-color="#e0803f"/>
+              </linearGradient>
+            </defs>
+            <g id="needle" transform="rotate(-90 130 140)">
+              <line x1="130" y1="140" x2="130" y2="45" stroke="#e9eef6" stroke-width="2.5"/>
+              <circle cx="130" cy="140" r="6" fill="#e9eef6"/>
+            </g>
+            <text x="20" y="156" fill="#5b6c85" font-family="IBM Plex Mono" font-size="10">0</text>
+            <text x="222" y="156" fill="#5b6c85" font-family="IBM Plex Mono" font-size="10">80 MPa</text>
+          </svg>
+        </div>
+        <div class="readout">
+          <div class="num" id="readout">--<span>MPa</span></div>
+        </div>
+        <button class="reset-btn" id="reset-btn">Reset to average mix</button>
+        <div class="bench">
+          <div>&#8226; <b>~17 MPa</b> — typical residential-grade concrete</div>
+          <div>&#8226; <b>~70 MPa</b> — high-performance / commercial grade</div>
+        </div>
+        <div class="model-note">
+          Powered by <b>Linear Regression</b> (this project's baseline model, R&sup2; 0.628).
+          The more accurate <b>Random Forest</b> (R&sup2; 0.881) uses 300 decision trees and
+          isn't practical to run live in a browser — see its results below instead.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= MODEL COMPARISON ================= -->
+  <section id="comparison">
+    <div class="eyebrow">02 — Results</div>
+    <h2 class="section-title">Baseline vs. Nonlinear Model</h2>
+    <p class="section-sub">
+      Linear Regression assumes every ingredient's effect just adds up. Random Forest can capture
+      ingredients interacting with each other — and the gap between them shows how much that
+      interaction actually matters for concrete.
+    </p>
+
+    <div class="compare-wrap">
+      <div class="compare-col lr">
+        <h3>Linear Regression</h3>
+        <div class="bar-row"><div class="lbl">R&sup2;</div><div class="bar-track"><div class="bar-fill dim" style="width:62.8%"></div></div><div class="val">0.628</div></div>
+        <div class="bar-row"><div class="lbl">MAE (MPa)</div><div class="bar-track"><div class="bar-fill dim" style="width:79%"></div></div><div class="val">7.75</div></div>
+        <div class="bar-row"><div class="lbl">RMSE (MPa)</div><div class="bar-track"><div class="bar-fill dim" style="width:100%"></div></div><div class="val">9.80</div></div>
+      </div>
+      <div class="compare-col rf">
+        <h3>Random Forest</h3>
+        <div class="bar-row"><div class="lbl">R&sup2;</div><div class="bar-track"><div class="bar-fill" style="width:88.1%"></div></div><div class="val">0.881</div></div>
+        <div class="bar-row"><div class="lbl">MAE (MPa)</div><div class="bar-track"><div class="bar-fill" style="width:38.7%"></div></div><div class="val">3.79</div></div>
+        <div class="bar-row"><div class="lbl">RMSE (MPa)</div><div class="bar-track"><div class="bar-fill" style="width:56.5%"></div></div><div class="val">5.54</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= FEATURE IMPORTANCE ================= -->
+  <section id="importance">
+    <div class="eyebrow">03 — Interpretation</div>
+    <h2 class="section-title">What Drives the Prediction</h2>
+    <p class="section-sub">
+      How much the Random Forest actually leans on each input to make its guess. Age and cement
+      are nearly tied at the top, together accounting for about two-thirds of the model's decisions.
+    </p>
+    <div class="chart-block" id="importance-chart"></div>
+  </section>
+
+  <!-- ================= CORRELATION ================= -->
+  <section id="correlation">
+    <div class="eyebrow">04 — Direction</div>
+    <h2 class="section-title">Which Way Each Ingredient Pushes</h2>
+    <p class="section-sub">
+      Importance says how much an input matters; this says which direction. Cement and superplasticizer
+      push strength up — water pulls it down, the classic water-cement ratio effect.
+    </p>
+    <div class="chart-block" id="corr-chart"></div>
+  </section>
+
+  <footer>
+    <div class="foot-grid">
+      <div>Concrete Compressive Strength Prediction &mdash; an AI + Civil Engineering project.</div>
+      <div class="foot-links">
+        <a href="https://github.com/mhmdjjamal/concrete-strength-prediction" target="_blank" rel="noopener">Notebook &amp; code</a>
+        <a href="https://archive.ics.uci.edu/dataset/165/concrete+compressive+strength" target="_blank" rel="noopener">Dataset (UCI)</a>
+      </div>
+    </div>
+  </footer>
+</div>
+
+<script>
+// ---------- real trained Linear Regression coefficients ----------
+const MODEL = {
+  intercept: -28.82355499969256,
+  cement: 0.11899393308432314,
+  slag: 0.10853559922579054,
+  fly_ash: 0.08215181186302914,
+  water: -0.13527626344797752,
+  superplasticizer: 0.31056993883013073,
+  coarse_aggregate: 0.017867152805875412,
+  fine_aggregate: 0.024099778717587415,
+  age: 0.11643863566902143
+};
+
+// field definitions: [key, label, unit, min, max, default (dataset mean/typical)]
+const FIELDS = [
+  ["cement", "Cement", "kg/m\u00B3", 102, 540, 281],
+  ["slag", "Blast Furnace Slag", "kg/m\u00B3", 0, 359, 74],
+  ["fly_ash", "Fly Ash", "kg/m\u00B3", 0, 200, 54],
+  ["water", "Water", "kg/m\u00B3", 122, 247, 182],
+  ["superplasticizer", "Superplasticizer", "kg/m\u00B3", 0, 32, 6],
+  ["coarse_aggregate", "Coarse Aggregate", "kg/m\u00B3", 801, 1145, 973],
+  ["fine_aggregate", "Fine Aggregate", "kg/m\u00B3", 594, 993, 774],
+  ["age", "Curing Age", "days", 1, 365, 28]
+];
+
+const sheet = document.getElementById("spec-sheet");
+FIELDS.forEach(([key, label, unit, min, max, def]) => {
+  const row = document.createElement("div");
+  row.className = "spec-row";
+  row.innerHTML = `
+    <div class="spec-label-row">
+      <span class="spec-label">${label}</span>
+      <span class="spec-value mono"><span id="val-${key}">${def}</span> ${unit}</span>
+    </div>
+    <input type="range" id="in-${key}" min="${min}" max="${max}" value="${def}" step="1">
+  `;
+  sheet.appendChild(row);
+});
+
+function predict(){
+  let total = MODEL.intercept;
+  FIELDS.forEach(([key]) => {
+    const v = parseFloat(document.getElementById("in-"+key).value);
+    total += v * MODEL[key];
+  });
+  return total;
+}
+
+function update(){
+  FIELDS.forEach(([key]) => {
+    document.getElementById("val-"+key).textContent = document.getElementById("in-"+key).value;
+  });
+  const strength = Math.max(0, predict());
+  document.getElementById("readout").innerHTML = strength.toFixed(1) + "<span>MPa</span>";
+
+  const clamped = Math.min(80, Math.max(0, strength));
+  const frac = clamped / 80;
+  const circumference = 345.6; // approx arc length for the path used
+  document.getElementById("gauge-arc").setAttribute("stroke-dashoffset", (circumference * (1 - frac)).toFixed(1));
+  const angle = -90 + frac * 180;
+  document.getElementById("needle").setAttribute("transform", `rotate(${angle} 130 140)`);
+}
+
+FIELDS.forEach(([key]) => {
+  document.getElementById("in-"+key).addEventListener("input", update);
+});
+
+document.getElementById("reset-btn").addEventListener("click", () => {
+  FIELDS.forEach(([key, label, unit, min, max, def]) => {
+    document.getElementById("in-"+key).value = def;
+  });
+  update();
+});
+
+update();
+
+// ---------- feature importance chart (real Random Forest output) ----------
+const IMPORTANCE = [
+  ["Age", 0.333434],
+  ["Cement", 0.328734],
+  ["Water", 0.124154],
+  ["Slag", 0.076811],
+  ["Superplasticizer", 0.055045],
+  ["Fine Aggregate", 0.035848],
+  ["Coarse Aggregate", 0.027341],
+  ["Fly Ash", 0.018632]
+];
+const impMax = IMPORTANCE[0][1];
+const impChart = document.getElementById("importance-chart");
+IMPORTANCE.forEach(([label, val]) => {
+  const row = document.createElement("div");
+  row.className = "bar-row";
+  row.innerHTML = `
+    <div class="lbl">${label}</div>
+    <div class="bar-track"><div class="bar-fill" style="width:${(val/impMax*100).toFixed(1)}%"></div></div>
+    <div class="val">${val.toFixed(3)}</div>
+  `;
+  impChart.appendChild(row);
+});
+
+// ---------- correlation chart (real values, sorted desc) ----------
+const CORR = [
+  ["Cement", 0.497832],
+  ["Superplasticizer", 0.366079],
+  ["Age", 0.328873],
+  ["Slag", 0.134829],
+  ["Fly Ash", -0.105755],
+  ["Coarse Aggregate", -0.164935],
+  ["Fine Aggregate", -0.167241],
+  ["Water", -0.289633]
+];
+const corrScaleMax = 0.5; // half-width scale
+const corrChart = document.getElementById("corr-chart");
+CORR.forEach(([label, val]) => {
+  const row = document.createElement("div");
+  row.className = "div-row";
+  const pct = (Math.abs(val) / corrScaleMax * 50).toFixed(1);
+  const isPos = val >= 0;
+  row.innerHTML = `
+    <div class="lbl">${label}</div>
+    <div class="div-track">
+      <div class="div-center"></div>
+      <div class="div-fill ${isPos ? 'pos' : 'neg'}" style="width:${pct}%"></div>
+    </div>
+    <div class="val" style="color:${isPos ? '#e0803f' : '#8fa0ba'}">${val > 0 ? '+' : ''}${val.toFixed(3)}</div>
+  `;
+  corrChart.appendChild(row);
+});
+</script>
+
+</body>
+</html>
